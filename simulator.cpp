@@ -93,20 +93,30 @@ void calculate_wattage(double appliance, double solar, Battery& battery, double 
 }
 
 int main() {
-    double appliance {0.1};
-    double solarPower {3.4};
+    double appliance {0.0};
+    double solarPower {3.0};
     double grid {numeric_limits<double>::max()};
     Battery battery {15.0, 5.0};
 
-    for (seconds s {0}; s != 12600s; ++s)
+    // charge my battery :)
+    for (seconds s {0}; s != 3s; ++s)
         calculate_wattage(appliance, solarPower, battery, grid);
 
+    cout << "Next\n";
+    appliance = 3;
+    solarPower = 0;
+
+    for (seconds s {0}; s != 3s; ++s)
+        calculate_wattage(appliance, solarPower, battery, grid);
+
+    /*
     cout << "\nCurCap: " << battery.CurrentCapacity() << '\n';
 
     appliance = 17;
 
     for (seconds s {0}; s != 8317s; ++s)
         calculate_wattage(appliance, solarPower, battery, grid);
+        */
 
     // cout << "Battery charged: " << setprecision(4) << b.currentCapacity / b.maxCapacity * 100 << '\n';
 
