@@ -56,10 +56,10 @@ int main(int argc, char* argv[]) {
 
     // 15 min intervals
     int buckets {span/0.25};
-    double bucket {mean/buckets};
+    double bucket {0.25};
 
     // double size because buckets is only half of X in normal distribution
-    int max {buckets * 2};
+    int max {buckets};
 
     vector<int> histogram(max);
 
@@ -67,15 +67,15 @@ int main(int argc, char* argv[]) {
     cout << "Max: " << max << '\n';
     cout << "Bucket: " << bucket << '\n';
 
-    auto gen = bind(normal_distribution<double>{mean},
+    auto gen = bind(normal_distribution<double>{(begin+end)/2, 2},
                    mt19937{static_cast<unsigned>(system_clock::now().time_since_epoch().count())});
 
-    constexpr int rolls {1'000'000};
+    constexpr int rolls {10'000'000};
 
     for (int i {0}; i != rolls; ++i) {
         double n {gen()};
 
-        double b {};
+        double b {begin};
         for (int& d : histogram) {
             if (b <= n &&  n < b+bucket) {
                 ++d;
@@ -85,15 +85,21 @@ int main(int argc, char* argv[]) {
         }
     }
 
-    int hmean {accumulate(histogram.begin(), histogram.end(), 0)/max};
-    double sum {};
+    int sum {accumulate(histogram.begin(), histogram.end(), 0)};
+
+    double scale {mean/sum};
+
+    double area {};
     for (int d : histogram) {
-        double res {(double)d/hmean*mean};
-        cout << res << '\n';
-        sum += res;
+        double kWh {scale*d};
+        string s;
+        for (int i{}; i != (int)(kWh*50.0); ++i)
+            s += '*';
+        cout << s << '\n';
+        area += kWh;
     }
 
-    cout << "Average: " << sum/max << '\n';
+    cout << "Area: " << area << '\n';
 
     return 0;
 }

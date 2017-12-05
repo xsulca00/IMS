@@ -106,7 +106,7 @@ int main() {
     appliance = 3;
     solarPower = 0;
 
-    for (seconds s {0}; s != 3s; ++s)
+    for (seconds s {15min}; s != 15min*100; ++s)
         calculate_wattage(appliance, solarPower, battery, grid);
 
     /*
