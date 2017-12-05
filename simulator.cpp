@@ -1,6 +1,10 @@
 #include <iostream>
 #include <chrono>
+#include <sstream>
+#include <fstream>
 #include <tuple>
+#include <iomanip>
+#include <vector>
 #include <algorithm>
 
 using namespace std;
@@ -50,9 +54,10 @@ pair<double, double> drain(double appliance, double generator) {
     return make_pair(generator, 0.0);
 }
 
-void calculate_wattage(double appliance, double solar, Battery& battery, double grid) {
+double calculate_wattage(double appliance, double solar, Battery& battery, double grid) {
     double sum {0.0};
     double consumed {};
+    double grid_consumed {};
 
     cout << "========\n";
 
@@ -80,7 +85,7 @@ void calculate_wattage(double appliance, double solar, Battery& battery, double 
 
     if (sum < appliance) {
         // grid power
-        tie(consumed, grid) = drain(appliance-sum, grid);
+        tie(grid_consumed, grid) = drain(appliance-sum, grid);
         sum += consumed;
         cout << "Grid consumed:     " << consumed << '\n';
     }
@@ -90,35 +95,66 @@ void calculate_wattage(double appliance, double solar, Battery& battery, double 
          << "Grid:              " << grid << '\n'
          << "Appliance:         " << appliance << "\n";
     cout << "========\n\n";
+    return grid_consumed;
 }
 
 int main() {
-    double appliance {0.0};
-    double solarPower {3.0};
+    // do for vector
+    
+    ofstream plot {"result.txt"};
+
+    if (!plot) {
+        throw runtime_error{"Cannot create and open result.txt!"};
+    }
+
+    plot.precision(6);
+    plot << fixed << 1 << ' ' << 1 << '\n';
+    plot << fixed << 2 << ' ' << 2 << '\n';
+
+    ifstream input {"jaro.txt"};
+    if (!input) {
+        throw runtime_error{"Cannot open jaro.txt!"};
+    }
+
     double grid {numeric_limits<double>::max()};
     Battery battery {15.0, 5.0};
 
+    vector<pair<double, double>> values;
+
+    for (string s; getline(input, s);) {
+        double appliance {};
+        char delimiter {};
+        double solarPower {};
+
+        istringstream ss {s};
+
+        ss >> appliance >> delimiter >>  solarPower;
+
+        values.emplace_back(appliance, solarPower);
+    }
+
+
+    double sum {};
+
+    for (const auto& p : values) {
+        double appliance {p.first};
+        double solarPower {p.second};
+
+        sum += calculate_wattage(appliance, solarPower, battery, grid);
+    }
+
+
+    double sum2 {0.0};
+    Battery battery2 {0.0, 0.0};
     // charge my battery :)
-    for (seconds s {0}; s != 3s; ++s)
-        calculate_wattage(appliance, solarPower, battery, grid);
+    for (const auto& p : values) {
+        double appliance {p.first};
 
-    cout << "Next\n";
-    appliance = 3;
-    solarPower = 0;
+        sum2 += calculate_wattage(appliance, 0.0, battery2, grid);
+    }
 
-    for (seconds s {15min}; s != 15min*100; ++s)
-        calculate_wattage(appliance, solarPower, battery, grid);
-
-    /*
-    cout << "\nCurCap: " << battery.CurrentCapacity() << '\n';
-
-    appliance = 17;
-
-    for (seconds s {0}; s != 8317s; ++s)
-        calculate_wattage(appliance, solarPower, battery, grid);
-        */
-
-    // cout << "Battery charged: " << setprecision(4) << b.currentCapacity / b.maxCapacity * 100 << '\n';
+    cout << setprecision(4) << "Energy from grid: " << sum << " kWh" << '\n';
+    cout << setprecision(4) << "Energy without solar and battery: " << sum2 << " kWh" << '\n';
 
     return 0;
 }
