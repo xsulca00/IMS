@@ -55,7 +55,7 @@ int main(int argc, char* argv[]) {
     double span {end - begin};
 
     // 15 min intervals
-    int buckets {span/0.25};
+    int buckets {static_cast<int>(span/0.25)};
     double bucket {0.25};
 
     // double size because buckets is only half of X in normal distribution

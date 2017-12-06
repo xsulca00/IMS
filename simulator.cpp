@@ -14,12 +14,13 @@ struct Battery {
     Battery(double mc, double mp)
         : maxCapacity{mc*3600}, maxPower{mp} {}
 
-    // TODO: Return back over charged energy
-    void Charge(double p) {
+    double Charge(double p) {
         if (currentCapacity + p > maxCapacity) {
             currentCapacity = maxCapacity;
+            return p - currentCapacity;
         } else {
             currentCapacity += p;
+            return p;
         }
     }
 
@@ -54,40 +55,54 @@ pair<double, double> drain(double appliance, double generator) {
     return make_pair(generator, 0.0);
 }
 
-double calculate_wattage(double appliance, double solar, Battery& battery, double grid) {
-    double sum {0.0};
-    double consumed {};
-    double grid_consumed {};
+ofstream result {"result.txt"};
+
+double calculate_wattage(bool write, double appliance, double solar, Battery& battery, double grid) {
+    static int n {};
+
+    double sum {};
+
+    double solarConsumed {};
+    double batteryConsumed {};
+    double gridConsumed {};
 
     cout << "========\n";
 
     if (sum < appliance) {
         // solar power
-        tie(consumed, solar) = drain(appliance, solar);
-        sum += consumed;
-        cout << "Solar consumed:    " << consumed << '\n';
+        tie(solarConsumed, solar) = drain(appliance, solar);
+        sum += solarConsumed;
+        cout << "Solar consumed:    " << solarConsumed << '\n';
     }
 
     if (sum < appliance) {
         // battery power
         if (!battery.Empty()) {
             double batteryOut {};
-            tie(consumed, batteryOut) = drain(appliance-sum, battery.NeedPower(appliance-sum));
-            sum += consumed;
-            cout << "Battery consumed:  " << consumed << '\n';
+            tie(batteryConsumed, batteryOut) = drain(appliance-sum, battery.NeedPower(appliance-sum));
+            sum += batteryConsumed;
+            cout << "Battery consumed:  " << batteryConsumed << '\n';
         }
     } else if (!battery.Full()) {
         // charge battery
-        battery.Charge(solar);
-        cout << "Battery charging:  " << solar << '\n';
-        solar -= solar;
+        double charged {battery.Charge(solar)};
+        solar -= charged;
+
+        cout << "Battery charging:  " << charged << '\n';
     }
 
     if (sum < appliance) {
         // grid power
-        tie(grid_consumed, grid) = drain(appliance-sum, grid);
-        sum += consumed;
-        cout << "Grid consumed:     " << consumed << '\n';
+        tie(gridConsumed, grid) = drain(appliance-sum, grid);
+        sum += gridConsumed;
+        cout << "Grid consumed:     " << gridConsumed << '\n';
+    }
+
+    if (write) {
+        result << n << ' ' << solarConsumed << ' ' << batteryConsumed << ' ' << gridConsumed << ' ' << appliance << '\n';
+        n += 15;
+    } else {
+        n = 0;
     }
 
     cout << "\nSolar:             " << solar << '\n'
@@ -95,66 +110,71 @@ double calculate_wattage(double appliance, double solar, Battery& battery, doubl
          << "Grid:              " << grid << '\n'
          << "Appliance:         " << appliance << "\n";
     cout << "========\n\n";
-    return grid_consumed;
+    return gridConsumed;
 }
 
-int main() {
-    // do for vector
-    
-    ofstream plot {"result.txt"};
-
-    if (!plot) {
-        throw runtime_error{"Cannot create and open result.txt!"};
-    }
-
-    plot.precision(6);
-    plot << fixed << 1 << ' ' << 1 << '\n';
-    plot << fixed << 2 << ' ' << 2 << '\n';
-
-    ifstream input {"jaro.txt"};
+vector<pair<double, double>> LoadValuesFromFile(const string& name) {
+    ifstream input {name};
     if (!input) {
-        throw runtime_error{"Cannot open jaro.txt!"};
+        throw runtime_error{"Cannot open: " + name};
     }
-
-    double grid {numeric_limits<double>::max()};
-    Battery battery {15.0, 5.0};
 
     vector<pair<double, double>> values;
 
     for (string s; getline(input, s);) {
         double appliance {};
-        char delimiter {};
         double solarPower {};
 
         istringstream ss {s};
 
-        ss >> appliance >> delimiter >>  solarPower;
+        if (!(ss >> appliance >> ws >>  solarPower) || !(ss >> ws).eof()) {
+            cerr << "Invalid line: " << ss.str() << '\n';
+            continue;
+        }
 
         values.emplace_back(appliance, solarPower);
     }
 
+    return values;
+}
+
+int main(int argc, char* argv[]) {
+    
+    if (argc != 2) {
+        throw runtime_error{"Usage: "s + argv[0] + " file"};
+    }
+
+    auto values = LoadValuesFromFile(argv[1]);
 
     double sum {};
+    {
+        double grid {numeric_limits<double>::max()};
+        Battery battery {15.0, 5.0};
 
-    for (const auto& p : values) {
-        double appliance {p.first};
-        double solarPower {p.second};
 
-        sum += calculate_wattage(appliance, solarPower, battery, grid);
+        for (const auto& p : values) {
+            double appliance; 
+            double solarPower; 
+            tie(appliance, solarPower) = p;
+
+            sum += calculate_wattage(true, appliance, solarPower, battery, grid);
+        }
     }
 
+    double sum2 {};
+    {
+        double grid {numeric_limits<double>::max()};
+        Battery battery {0.0, 0.0};
 
-    double sum2 {0.0};
-    Battery battery2 {0.0, 0.0};
-    // charge my battery :)
-    for (const auto& p : values) {
-        double appliance {p.first};
+        for (const auto& p : values) {
+            double appliance {p.first};
 
-        sum2 += calculate_wattage(appliance, 0.0, battery2, grid);
+            sum2 += calculate_wattage(false, appliance, 0.0, battery, grid);
+        }
     }
 
-    cout << setprecision(4) << "Energy from grid: " << sum << " kWh" << '\n';
-    cout << setprecision(4) << "Energy without solar and battery: " << sum2 << " kWh" << '\n';
+    cout << setprecision(4) << "Energy consumed from grid: " << sum << " kWh" << '\n';
+    cout << setprecision(4) << "Energy consumed from grid without solar and battery: " << sum2 << " kWh" << '\n';
 
     return 0;
 }
