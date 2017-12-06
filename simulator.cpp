@@ -12,7 +12,7 @@ using namespace std::chrono;
 
 struct Battery {
     Battery(double mc, double mp)
-        : maxCapacity{mc*3600}, maxPower{mp} {}
+        : maxCapacity{mc*15*60}, maxPower{mp*15*60} {}
 
     double Charge(double p) {
         if (currentCapacity + p > maxCapacity) {
@@ -68,27 +68,26 @@ double calculate_wattage(bool write, double appliance, double solar, Battery& ba
 
     cout << "========\n";
 
-    if (sum < appliance) {
+    if (sum < appliance && solar > 0) {
         // solar power
         tie(solarConsumed, solar) = drain(appliance, solar);
         sum += solarConsumed;
         cout << "Solar consumed:    " << solarConsumed << '\n';
     }
 
-    if (sum < appliance) {
-        // battery power
-        if (!battery.Empty()) {
-            double batteryOut {};
-            tie(batteryConsumed, batteryOut) = drain(appliance-sum, battery.NeedPower(appliance-sum));
-            sum += batteryConsumed;
-            cout << "Battery consumed:  " << batteryConsumed << '\n';
+    if (solar > 0) {
+        if (!battery.Full()) {
+            // charge battery
+            double charged {battery.Charge(solar)};
+            solar -= charged;
+            cout << "Battery charging:  " << charged << '\n';
         }
-    } else if (!battery.Full()) {
-        // charge battery
-        double charged {battery.Charge(solar)};
-        solar -= charged;
-
-        cout << "Battery charging:  " << charged << '\n';
+    } else if (sum < appliance && !battery.Empty()) {
+        // battery power
+        double batteryOut {};
+        tie(batteryConsumed, batteryOut) = drain(appliance-sum, battery.NeedPower(appliance-sum));
+        sum += batteryConsumed;
+        cout << "Battery consumed:  " << batteryConsumed << '\n';
     }
 
     if (sum < appliance) {
@@ -149,8 +148,7 @@ int main(int argc, char* argv[]) {
     double sum {};
     {
         double grid {numeric_limits<double>::max()};
-        Battery battery {15.0, 5.0};
-
+        Battery battery {13.5, 5.0};
 
         for (const auto& p : values) {
             double appliance; 
@@ -160,6 +158,8 @@ int main(int argc, char* argv[]) {
             sum += calculate_wattage(true, appliance, solarPower, battery, grid);
         }
     }
+
+    cout << "Delimiter\n";
 
     double sum2 {};
     {
