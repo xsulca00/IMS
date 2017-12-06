@@ -141,7 +141,7 @@ vector<pair<double, double>> LoadValuesFromFile(const string& name) {
 int main(int argc, char* argv[]) {
     
     if (argc != 2) {
-        throw runtime_error{"Usage: "s + argv[0] + " file"};
+        throw runtime_error{string{"Usage: "} + argv[0] + " file"};
     }
 
     auto values = LoadValuesFromFile(argv[1]);

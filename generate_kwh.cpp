@@ -70,7 +70,7 @@ int main(int argc, char* argv[]) {
     auto gen = bind(normal_distribution<double>{(begin+end)/2, 2},
                    mt19937{static_cast<unsigned>(system_clock::now().time_since_epoch().count())});
 
-    constexpr int rolls {10'000'000};
+    constexpr int rolls {10000000};
 
     for (int i {0}; i != rolls; ++i) {
         double n {gen()};
